@@ -1,13 +1,35 @@
-const API_KEY = "wai_ee514a.c8b21984a8782100a194dc09eced0ef86937266c5dc50485"; // or replace directly
-const BASE_URL = "https://api.weather-ai.co/v1";
+// ⚠️ IMPORTANT: This file is for testing/development only
+// The main app uses src/services/weatherApi.js which reads the API key from localStorage
+// Users must provide their own API key via the app - do NOT hardcode keys here
+
+function getApiKey() {
+  // Try to read from localStorage (for production use)
+  const key =
+    (typeof window !== 'undefined' && window.localStorage?.getItem('smartfarm_weather_ai_key')) ||
+    (typeof window !== 'undefined' && window.localStorage?.getItem('weatherAiToken')) ||
+    (typeof window !== 'undefined' && window.localStorage?.getItem('weather_ai_key')) ||
+    (typeof window !== 'undefined' && window.localStorage?.getItem('weather-ai-key'))
+
+  if (!key) {
+    throw new Error(
+      'No WeatherAI API key found. Please set your API key via the SmartFarm app or in localStorage (smartfarm_weather_ai_key)',
+    )
+  }
+
+  return key
+}
+
+const BASE_URL = 'https://api.weather-ai.co/v1'
 
 // =========================
 // CORE FETCH HELPER
 // =========================
 async function request(endpoint) {
   try {
+    const API_KEY = getApiKey()
+
     const res = await fetch(`${BASE_URL}${endpoint}`, {
-      method: "GET",
+      method: 'GET',
       headers: {
         Authorization: `Bearer ${API_KEY}`,
       },

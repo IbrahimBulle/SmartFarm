@@ -90,24 +90,29 @@ export function WeatherSection({ status, setStatus, busy, setBusy, onWeatherLoad
       </form>
 
       {weatherHighlights ? (
-        <div className="weather-highlights">
-          <div className="metric">
-            <strong>{weatherHighlights.temperature || '--'}°</strong>
-            <span>Temperature</span>
+        <>
+          <div className="weather-highlights">
+            <div className="metric">
+              <strong>{weatherHighlights.temperature || '--'}°</strong>
+              <span>Temperature</span>
+            </div>
+            <div className="metric">
+              <strong>{weatherHighlights.humidity || '--'}%</strong>
+              <span>Humidity</span>
+            </div>
+            <div className="metric">
+              <strong>{weatherHighlights.wind || '--'} kph</strong>
+              <span>Wind</span>
+            </div>
           </div>
-          <div className="metric">
-            <strong>{weatherHighlights.humidity || '--'}%</strong>
-            <span>Humidity</span>
-          </div>
-          <div className="metric">
-            <strong>{weatherHighlights.wind || '--'} kph</strong>
-            <span>Wind</span>
-          </div>
-        </div>
-      ) : null}
 
-      {weatherHighlights?.summary ? (
-        <p className="weather-summary">{weatherHighlights.summary}</p>
+          {weatherHighlights?.summary ? (
+            <div className="ai-summary-section">
+              <h4>🤖 AI Weather Analysis</h4>
+              <p className="weather-summary">{weatherHighlights.summary}</p>
+            </div>
+          ) : null}
+        </>
       ) : null}
     </section>
   )
