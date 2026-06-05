@@ -1,6 +1,7 @@
-import { formatNumber, formatMaybeDate } from '../utils/formatters'
+import { formatNumber, formatMaybeDate, debugUsageSummary } from '../utils/formatters'
 
 export function UsageMeter({ compact = false, summary }) {
+  debugUsageSummary(summary)
   const headingLabel = summary.connected
     ? summary.plan
     : summary.issue

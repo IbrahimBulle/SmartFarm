@@ -50,7 +50,20 @@ function App() {
   const loadUsage = useCallback(async () => {
     try {
       const data = await fetchUsage()
-      if (!data || typeof data !== 'object' || (!data.period && !data.limits && !data.remaining)) {
+      // More lenient validation - just check if we got valid data with any quota info
+      if (!data || typeof data !== 'object') {
+        throw new Error('WeatherAI usage endpoint returned invalid data.')
+      }
+      // Check if we have at least some quota information
+      const hasQuotaInfo =
+        data.period ||
+        data.limits ||
+        data.remaining ||
+        data.requests_remaining ||
+        data.quota ||
+        data.used ||
+        data.requestCount
+      if (!hasQuotaInfo) {
         throw new Error('WeatherAI usage endpoint returned no quota data.')
       }
       setUsage(data)

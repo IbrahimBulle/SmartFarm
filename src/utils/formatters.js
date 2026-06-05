@@ -73,36 +73,45 @@ function firstNumber(values) {
 
 /**
  * Parse usage data from WeatherAI response
+ * Handles multiple possible API response formats
  */
 export function summarizeUsage(usage, issue = '') {
   const hasUsage = Boolean(usage)
-  const rawRemaining =
-    usage?.remaining?.requests ||
-    usage?.remaining ||
-    usage?.requests_remaining ||
-    usage?.request_remaining ||
-    usage?.requests?.remaining ||
-    null
+  
+  // Try multiple paths for remaining requests
+  let remaining = firstNumber([
+    usage?.remaining?.requests,
+    usage?.remaining,
+    usage?.requests_remaining,
+    usage?.request_remaining,
+    usage?.requests?.remaining,
+    usage?.quota?.requests_remaining,
+  ])
 
-  const limit =
-    hasUsage
-      ? firstNumber([
-          usage?.limits?.requests,
-          findValue(usage, [
-            'limit',
-            'requests_limit',
-            'request_limit',
-            'monthly_limit',
-            'quota',
-            'quota_limit',
-            'max_requests',
-          ]),
-        ]) ?? 1000
-      : null
+  // Try multiple paths for request limit
+  let limit = hasUsage
+    ? firstNumber([
+        usage?.limits?.requests,
+        usage?.quota?.limit,
+        usage?.quota?.requests_limit,
+        findValue(usage, [
+          'limit',
+          'requests_limit',
+          'request_limit',
+          'monthly_limit',
+          'quota',
+          'quota_limit',
+          'max_requests',
+        ]),
+      ]) ?? 1000
+    : null
 
+  // Try multiple paths for used requests
   let used = firstNumber([
     usage?.period?.requestCount,
     usage?.requestCount,
+    usage?.quota?.requests_used,
+    usage?.used,
     findValue(usage, [
       'used',
       'requests_used',
@@ -114,24 +123,48 @@ export function summarizeUsage(usage, issue = '') {
     ]),
   ])
 
-  let remaining = firstNumber([rawRemaining])
-  const aiLimit = hasUsage
-    ? firstNumber([usage?.limits?.aiRequests, usage?.ai_request_limit])
-    : null
-  const aiUsed = hasUsage ? firstNumber([usage?.period?.aiRequestCount, usage?.aiRequestCount]) : null
-  const aiRemaining = hasUsage
-    ? firstNumber([usage?.remaining?.aiRequests, usage?.ai_requests_remaining])
-    : null
-
+  // If we have remaining and limit, calculate used
   if (used === null && limit !== null && remaining !== null) {
     used = Math.max(limit - remaining, 0)
   }
 
+  // If we have used and limit, calculate remaining
   if (remaining === null && limit !== null && used !== null) {
     remaining = Math.max(limit - used, 0)
   }
 
-  const percent = limit && used !== null ? Math.min(Math.max((used / limit) * 100, 0), 100) : 0
+  // Default used to 0 if still null (new user or fresh month)
+  if (used === null) used = 0
+  if (remaining === null && limit !== null) remaining = limit
+
+  // Calculate percentage safely
+  const percent = limit ? Math.min(Math.max((used / limit) * 100, 0), 100) : 0
+  
+  // AI quotas
+  const aiLimit = hasUsage
+    ? firstNumber([
+        usage?.limits?.aiRequests,
+        usage?.quota?.ai_request_limit,
+        usage?.quota?.ai_requests_limit,
+        usage?.ai_request_limit,
+      ])
+    : null
+  const aiUsed = hasUsage
+    ? firstNumber([
+        usage?.period?.aiRequestCount,
+        usage?.aiRequestCount,
+        usage?.quota?.ai_requests_used,
+        usage?.ai_used,
+      ])
+    : null
+  const aiRemaining = hasUsage
+    ? firstNumber([
+        usage?.remaining?.aiRequests,
+        usage?.ai_requests_remaining,
+        usage?.quota?.ai_requests_remaining,
+      ])
+    : null
+
   const plan = hasUsage ? findValue(usage, ['plan', 'tier', 'subscription_plan']) || 'Free' : ''
   const reset =
     usage?.period?.end ||
@@ -151,6 +184,21 @@ export function summarizeUsage(usage, issue = '') {
     reset,
     used,
     percent: Math.round(percent),
+  }
+}
+
+// Debug helper for development
+export function debugUsageSummary(summary) {
+  if (typeof window !== 'undefined' && window.localStorage?.getItem('DEBUG_USAGE')) {
+    console.debug('📊 Usage Summary:', {
+      percent: `${summary.percent}%`,
+      used: summary.used,
+      remaining: summary.remaining,
+      limit: summary.limit,
+      connected: summary.connected,
+      issue: summary.issue || 'none',
+      plan: summary.plan,
+    })
   }
 }
 
