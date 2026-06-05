@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { saveWeatherApiKey } from '../services/weatherApi'
 
-export function ApiKeySetup({ onApiKeySet, status, setStatus }) {
+export function ApiKeySetup({ onApiKeySet, setStatus, configured = false }) {
   const [apiKey, setApiKey] = useState('')
   const [showInput, setShowInput] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -14,42 +15,22 @@ export function ApiKeySetup({ onApiKeySet, status, setStatus }) {
 
     setIsSaving(true)
     try {
-      // Store the API key in localStorage
-      localStorage.setItem('smartfarm_weather_ai_key', apiKey.trim())
-
-      // Test the connection by trying to fetch usage
-      const response = await fetch('https://api.weather-ai.co/v1/usage', {
-        headers: { Authorization: `Bearer ${apiKey.trim()}` },
-      })
-
-      if (!response.ok) {
-        localStorage.removeItem('smartfarm_weather_ai_key')
-        throw new Error(`API key validation failed: ${response.statusText}`)
-      }
-
-      setStatus('✅ API key successfully configured!')
+      await saveWeatherApiKey(apiKey.trim())
+      setStatus('API key saved to your SmartFarm account.')
       setApiKey('')
       setShowInput(false)
       onApiKeySet()
     } catch (error) {
-      setStatus(`❌ ${error.message}`)
+      setStatus(`API key setup failed: ${error.message}`)
     } finally {
       setIsSaving(false)
     }
   }
 
   function handleChangeApiKey() {
-    const currentKey = localStorage.getItem('smartfarm_weather_ai_key') || ''
-    setApiKey(currentKey)
+    setApiKey('')
     setShowInput(true)
   }
-
-  const hasApiKey = Boolean(
-    localStorage.getItem('smartfarm_weather_ai_key') ||
-      localStorage.getItem('weatherAiToken') ||
-      localStorage.getItem('weather_ai_key') ||
-      localStorage.getItem('weather-ai-key'),
-  )
 
   if (showInput) {
     return (
@@ -64,7 +45,7 @@ export function ApiKeySetup({ onApiKeySet, status, setStatus }) {
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Bearer token from weather-ai.co"
+              placeholder="API key or bearer token from weather-ai.co"
               disabled={isSaving}
             />
           </label>
@@ -90,7 +71,7 @@ export function ApiKeySetup({ onApiKeySet, status, setStatus }) {
     )
   }
 
-  if (!hasApiKey) {
+  if (!configured) {
     return (
       <div className="panel api-key-setup">
         <h3>🔐 API Key Required</h3>
@@ -126,7 +107,7 @@ export function ApiKeySetup({ onApiKeySet, status, setStatus }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
         <div>
           <h3 style={{ marginBottom: '4px' }}>🔑 API Key</h3>
-          <p className="panel-note" style={{ margin: 0 }}>Configured and active</p>
+          <p className="panel-note" style={{ margin: 0 }}>Configured for this SmartFarm account</p>
         </div>
         <button className="ghost-button" onClick={handleChangeApiKey} style={{ minHeight: '40px', whiteSpace: 'nowrap' }}>
           Change Key

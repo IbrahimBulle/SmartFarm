@@ -1,32 +1,77 @@
 /**
- * WeatherAI API service
- * Free tier: 1000 req/mo, 200 AI req/mo, 7 day forecast, 5 analyses/mo
+ * WeatherAI service via the SmartFarm backend.
+ * The browser never stores or sends the WeatherAI key directly.
  */
 
-const BASE_URL = 'https://api.weather-ai.co/v1'
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8080'
 
 function getAuthHeader() {
-  const key =
-    localStorage.getItem('smartfarm_weather_ai_key') ||
-    localStorage.getItem('smartfarm_token') ||
-    localStorage.getItem('weatherAiToken') ||
-    localStorage.getItem('weather_ai_key') ||
-    localStorage.getItem('weather-ai-key') ||
-    ''
+  const token = localStorage.getItem('smartfarm_token') || ''
 
-  if (!key) throw new Error('Missing WeatherAI API key in localStorage.')
-  return { Authorization: `Bearer ${key}` }
+  if (!token) throw new Error('Please sign in before using WeatherAI services.')
+  return { Authorization: `Bearer ${token}` }
 }
 
 async function readResponse(response) {
   const text = await response.text()
-  const data = text ? JSON.parse(text) : null
+  let data = null
+
+  if (text) {
+    try {
+      data = JSON.parse(text)
+    } catch {
+      data = text
+    }
+  }
 
   if (!response.ok) {
-    throw new Error(data?.message || text || response.statusText)
+    const message =
+      (typeof data === 'object' && data?.message) ||
+      (typeof data === 'string' && data) ||
+      response.statusText
+    throw new Error(message)
   }
 
   return data
+}
+
+/**
+ * Check whether the signed-in SmartFarm user has a stored WeatherAI key.
+ */
+export async function fetchWeatherKeyStatus() {
+  const response = await fetch(`${BACKEND_URL}/weather/key`, {
+    headers: getAuthHeader(),
+  })
+
+  return readResponse(response)
+}
+
+/**
+ * Save and validate a WeatherAI API key for the signed-in SmartFarm user.
+ */
+export async function saveWeatherApiKey(apiKey) {
+  const response = await fetch(`${BACKEND_URL}/weather/key`, {
+    method: 'POST',
+    headers: {
+      ...getAuthHeader(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ api_key: apiKey }),
+  })
+
+  return readResponse(response)
+}
+
+/**
+ * Remove the stored WeatherAI API key for the signed-in SmartFarm user.
+ */
+export async function deleteWeatherApiKey() {
+  const response = await fetch(`${BACKEND_URL}/weather/key`, {
+    method: 'DELETE',
+    headers: getAuthHeader(),
+  })
+
+  return readResponse(response)
 }
 
 /**
@@ -43,7 +88,7 @@ export async function fetchWeather(params) {
     lang: params.lang || 'en',
   })
 
-  const response = await fetch(`${BASE_URL}/weather?${query}`, {
+  const response = await fetch(`${BACKEND_URL}/weather?${query}`, {
     headers: getAuthHeader(),
   })
 
@@ -54,7 +99,7 @@ export async function fetchWeather(params) {
  * Fetch usage and quota information
  */
 export async function fetchUsage() {
-  const response = await fetch(`${BASE_URL}/usage`, {
+  const response = await fetch(`${BACKEND_URL}/weather/usage`, {
     headers: getAuthHeader(),
   })
 
@@ -76,7 +121,7 @@ export async function analyzeImage(imageFile, metadata = {}) {
   if (metadata.location) form.append('location', metadata.location)
   if (metadata.notes) form.append('notes', metadata.notes)
 
-  const response = await fetch(`${BASE_URL}/trees/analyze`, {
+  const response = await fetch(`${BACKEND_URL}/weather/trees/analyze`, {
     method: 'POST',
     headers: getAuthHeader(),
     body: form,
@@ -89,7 +134,7 @@ export async function analyzeImage(imageFile, metadata = {}) {
  * Get tree analysis quota
  */
 export async function fetchTreeQuota() {
-  const response = await fetch(`${BASE_URL}/trees/quota`, {
+  const response = await fetch(`${BACKEND_URL}/weather/trees/quota`, {
     headers: getAuthHeader(),
   })
 

@@ -1,38 +1,22 @@
-// ⚠️ IMPORTANT: This file is for testing/development only
-// The main app uses src/services/weatherApi.js which reads the API key from localStorage
-// Users must provide their own API key via the app - do NOT hardcode keys here
+// Testing/development helper for the SmartFarm backend weather proxy.
 
-function getApiKey() {
-  // Try to read from localStorage (for production use)
-  const key =
-    (typeof window !== 'undefined' && window.localStorage?.getItem('smartfarm_weather_ai_key')) ||
-    (typeof window !== 'undefined' && window.localStorage?.getItem('weatherAiToken')) ||
-    (typeof window !== 'undefined' && window.localStorage?.getItem('weather_ai_key')) ||
-    (typeof window !== 'undefined' && window.localStorage?.getItem('weather-ai-key'))
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8080'
 
-  if (!key) {
-    throw new Error(
-      'No WeatherAI API key found. Please set your API key via the SmartFarm app or in localStorage (smartfarm_weather_ai_key)',
-    )
-  }
+function getAuthHeader() {
+  const token = typeof window !== 'undefined' ? window.localStorage?.getItem('smartfarm_token') : ''
 
-  return key
+  if (!token) throw new Error('Sign in before testing backend weather APIs.')
+  return { Authorization: `Bearer ${token}` }
 }
-
-const BASE_URL = 'https://api.weather-ai.co/v1'
 
 // =========================
 // CORE FETCH HELPER
 // =========================
 async function request(endpoint) {
   try {
-    const API_KEY = getApiKey()
-
-    const res = await fetch(`${BASE_URL}${endpoint}`, {
+    const res = await fetch(`${BACKEND_URL}${endpoint}`, {
       method: 'GET',
-      headers: {
-        Authorization: `Bearer ${API_KEY}`,
-      },
+      headers: getAuthHeader(),
     });
 
     const data = await res.json();
@@ -58,19 +42,19 @@ export const getWeather = (lat, lon) =>
 
 // Basic forecast
 export const getForecast = (lat, lon) =>
-  request(`/forecast?lat=${lat}&lon=${lon}`);
+  request(`/weather?lat=${lat}&lon=${lon}&days=7`);
 
 // Current conditions
 export const getCurrent = (lat, lon) =>
-  request(`/current?lat=${lat}&lon=${lon}`);
+  request(`/weather?lat=${lat}&lon=${lon}&days=1&ai=false`);
 
 // Daily forecast
 export const getDaily = (lat, lon) =>
-  request(`/daily?lat=${lat}&lon=${lon}`);
+  request(`/weather?lat=${lat}&lon=${lon}&days=7&ai=false`);
 
 // Hourly forecast
 export const getHourly = (lat, lon) =>
-  request(`/hourly?lat=${lat}&lon=${lon}`);
+  request(`/weather?lat=${lat}&lon=${lon}&days=1&ai=false`);
 
 // 7-day forecast default (free limit)
 export const getForecast7 = (lat, lon) =>
@@ -78,11 +62,11 @@ export const getForecast7 = (lat, lon) =>
 
 // Weather from IP (no coords needed)
 export const getWeatherFromIP = () =>
-  request(`/ip-lookup`);
+  request(`/weather`);
 
 // Geo-based weather helper
 export const getWeatherGeo = () =>
-  request(`/weather-geo`);
+  request(`/weather`);
 
 // =========================
 // 📊 ACCOUNT (FREE)
@@ -90,7 +74,7 @@ export const getWeatherGeo = () =>
 
 // Usage + quota tracking
 export const getUsage = () =>
-  request(`/usage`);
+  request(`/weather/usage`);
 
 // =========================
 // 🧪 QUICK TEST FUNCTION

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { fetchWeather } from '../services/weatherApi'
 import { findValue } from '../utils/formatters'
 
-export function WeatherSection({ status, setStatus, busy, setBusy, onWeatherLoaded }) {
+export function WeatherSection({ setStatus, busy, setBusy, onWeatherLoaded }) {
   const [weatherForm, setWeatherForm] = useState({
     lat: '-0.7813',
     lon: '35.3416',

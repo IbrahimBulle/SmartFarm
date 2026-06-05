@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { fetchFarms } from './services/farmApi'
-import { fetchUsage } from './services/weatherApi'
+import { fetchUsage, fetchWeatherKeyStatus, saveWeatherApiKey } from './services/weatherApi'
 import { summarizeUsage } from './utils/formatters'
 import { AuthPage } from './components/AuthPage'
 import { ApiKeySetup } from './components/ApiKeySetup'
@@ -12,14 +12,7 @@ import { UsageMeter } from './components/UsageMeter'
 
 function App() {
   const [token, setToken] = useState(() => localStorage.getItem('smartfarm_token') || '')
-  const [apiKeyReady, setApiKeyReady] = useState(() => {
-    return Boolean(
-      localStorage.getItem('smartfarm_weather_ai_key') ||
-        localStorage.getItem('weatherAiToken') ||
-        localStorage.getItem('weather_ai_key') ||
-        localStorage.getItem('weather-ai-key'),
-    )
-  })
+  const [apiKeyReady, setApiKeyReady] = useState(false)
   const [farms, setFarms] = useState([])
   const [selectedFarmId, setSelectedFarmId] = useState('')
   const [usage, setUsage] = useState(null)
@@ -74,53 +67,44 @@ function App() {
     }
   }, [])
 
-  useEffect(() => {
-    if (!token) return
-    queueMicrotask(() => {
-      loadFarms(token)
-      loadUsage()
-    })
-  }, [loadFarms, loadUsage, token])
+  const loadApiKeyStatus = useCallback(async () => {
+    try {
+      const data = await fetchWeatherKeyStatus()
+      const configured = Boolean(data?.configured)
+      setApiKeyReady(configured)
 
-  // Clear old API key when user logs in with a new account
-  useEffect(() => {
-    if (!token) return
+      if (!configured) {
+        setStatus('Please set up your WeatherAI API key to continue.')
+      }
 
-    // Check if we have an API key set for this account
-    const hasApiKey = Boolean(
-      localStorage.getItem('smartfarm_weather_ai_key') ||
-        localStorage.getItem('weatherAiToken') ||
-        localStorage.getItem('weather_ai_key') ||
-        localStorage.getItem('weather-ai-key'),
-    )
-
-    setApiKeyReady(hasApiKey)
-
-    // If no API key, show setup message
-    if (!hasApiKey) {
-      setStatus('🔑 Please set up your WeatherAI API key to continue.')
+      return configured
+    } catch (error) {
+      setApiKeyReady(false)
+      setStatus(`Could not check WeatherAI API key: ${error.message}`)
+      return false
     }
-  }, [token])
+  }, [])
+
+  useEffect(() => {
+    if (!token) return
+    queueMicrotask(async () => {
+      loadFarms(token)
+      const configured = await loadApiKeyStatus()
+      if (configured) loadUsage()
+    })
+  }, [loadApiKeyStatus, loadFarms, loadUsage, token])
 
   function handleLogin(newToken) {
-    const previousToken = localStorage.getItem('smartfarm_token')
-    
-    // If there was a previous token and it's different, user switched accounts
-    if (previousToken && previousToken !== newToken) {
-      // Clear old API key for previous account
-      localStorage.removeItem('smartfarm_weather_ai_key')
-      localStorage.removeItem('weatherAiToken')
-      localStorage.removeItem('weather_ai_key')
-      localStorage.removeItem('weather-ai-key')
-      // Will force API key setup after token updates
-    }
-    
+    setApiKeyReady(false)
+    setUsage(null)
+    setUsageError('')
     setToken(newToken)
   }
 
   function handleApiKeySet() {
     setApiKeyReady(true)
     setStatus('API key configured successfully!')
+    loadUsage()
   }
 
   function handleSignOut() {
@@ -130,6 +114,7 @@ function App() {
     setSelectedFarmId('')
     setUsage(null)
     setUsageError('')
+    setApiKeyReady(false)
     setStatus('Signed out.')
   }
 
@@ -159,7 +144,11 @@ function App() {
             <h1>SmartFarm Setup</h1>
           </div>
 
-          <ApiKeySetup onApiKeySet={handleApiKeySet} status={status} setStatus={setStatus} />
+          <ApiKeySetup
+            onApiKeySet={handleApiKeySet}
+            setStatus={setStatus}
+            configured={apiKeyReady}
+          />
 
           {status && <div className="status-line">{status}</div>}
         </section>
@@ -203,16 +192,25 @@ function App() {
         <button
           className="ghost-button"
           type="button"
-          onClick={() => {
+          onClick={async () => {
             const newKey = prompt('Enter your WeatherAI API key:')
-            if (newKey?.trim()) {
-              localStorage.setItem('smartfarm_weather_ai_key', newKey.trim())
-              setStatus('✅ API key updated!')
+            if (!newKey?.trim()) return
+
+            setBusy('api-key')
+            try {
+              await saveWeatherApiKey(newKey.trim())
+              setApiKeyReady(true)
+              setStatus('API key updated.')
               loadUsage()
+            } catch (error) {
+              setStatus(`API key update failed: ${error.message}`)
+            } finally {
+              setBusy('')
             }
           }}
+          disabled={busy === 'api-key'}
         >
-          🔑 Change API Key
+          {busy === 'api-key' ? 'Updating key...' : '🔑 Change API Key'}
         </button>
 
         <button className="ghost-button" type="button" onClick={handleSignOut}>
@@ -237,14 +235,12 @@ function App() {
           selectedFarmId={selectedFarmId}
           token={token}
           onFarmsChange={setFarms}
-          status={status}
           setStatus={setStatus}
           busy={busy}
           setBusy={setBusy}
         />
 
         <WeatherSection
-          status={status}
           setStatus={setStatus}
           busy={busy}
           setBusy={setBusy}
@@ -252,7 +248,6 @@ function App() {
         />
 
         <ImageAnalysis
-          status={status}
           setStatus={setStatus}
           busy={busy}
           setBusy={setBusy}

@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { analyzeImage } from '../services/weatherApi'
 import { asList } from '../utils/formatters'
 
-export function ImageAnalysis({ status, setStatus, busy, setBusy, onAnalysisComplete }) {
+export function ImageAnalysis({ setStatus, busy, setBusy, onAnalysisComplete }) {
   const [imageForm, setImageForm] = useState({
     farmerId: '',
     county: 'Bomet',

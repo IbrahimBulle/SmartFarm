@@ -9,12 +9,10 @@ const emptyFarm = {
   size_acres: '2.5',
 }
 
-export function FarmList({ farms, selectedFarmId, token, onFarmsChange, status, setStatus, busy, setBusy }) {
+export function FarmList({ farms, selectedFarmId, token, onFarmsChange, setStatus, busy, setBusy }) {
   const [farmForm, setFarmForm] = useState(emptyFarm)
   const [editingFarmId, setEditingFarmId] = useState('')
   const isEditing = Boolean(editingFarmId)
-
-  const selectedFarm = farms.find((f) => String(f.id) === selectedFarmId) || farms[0]
 
   const totals = {
     farms: farms.length,
