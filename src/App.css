@@ -738,15 +738,17 @@ button:disabled {
 }
 
 .weather-summary {
-  padding: 18px;
+  padding: 22px;
   background: linear-gradient(135deg, #e8f3f9, #f5f8f9);
   border: 1px solid rgba(58, 124, 184, 0.2);
   border-left: 4px solid var(--water);
   border-radius: 8px;
-  margin: 20px 0;
-  line-height: 1.7;
+  margin: 18px 0 0;
+  line-height: 1.75;
   color: var(--text);
   font-weight: 500;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
   box-shadow: 0 2px 8px rgba(58, 124, 184, 0.08);
 }
 
@@ -756,8 +758,8 @@ button:disabled {
 }
 
 .ai-summary-section {
-  margin-top: 24px;
-  padding: 24px;
+  margin-top: 32px;
+  padding: 28px;
   background: linear-gradient(135deg, #f0f7f2, #e8f3f9);
   border: 2px solid rgba(58, 124, 184, 0.15);
   border-radius: 12px;

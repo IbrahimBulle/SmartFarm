@@ -2,6 +2,28 @@ import { useState } from 'react'
 import { fetchWeather } from '../services/weatherApi'
 import { findValue } from '../utils/formatters'
 
+function formatWeatherSummary(value) {
+  if (!value) return ''
+  if (typeof value === 'string') return value
+  if (Array.isArray(value)) return value.filter(Boolean).join('\n\n')
+  if (typeof value === 'object') {
+    const nestedSummary = findValue(value, [
+      'summary',
+      'ai_summary',
+      'insight',
+      'recommendation',
+      'recommendations',
+      'message',
+      'text',
+    ])
+
+    if (nestedSummary && nestedSummary !== value) return formatWeatherSummary(nestedSummary)
+    return JSON.stringify(value, null, 2)
+  }
+
+  return String(value)
+}
+
 export function WeatherSection({ setStatus, busy, setBusy, onWeatherLoaded }) {
   const [weatherForm, setWeatherForm] = useState({
     lat: '-0.7813',
@@ -16,7 +38,17 @@ export function WeatherSection({ setStatus, busy, setBusy, onWeatherLoaded }) {
         temperature: findValue(weather, ['temperature', 'temp', 'temperature_c', 'temp_c']),
         humidity: findValue(weather, ['humidity', 'relative_humidity']),
         wind: findValue(weather, ['wind_speed', 'windSpeed', 'wind_kph']),
-        summary: findValue(weather, ['summary', 'ai_summary', 'insight', 'analysis']),
+        summary: formatWeatherSummary(
+          findValue(weather, [
+            'summary',
+            'ai_summary',
+            'aiSummary',
+            'insight',
+            'analysis',
+            'recommendation',
+            'recommendations',
+          ]),
+        ),
       }
     : null
 
@@ -106,12 +138,12 @@ export function WeatherSection({ setStatus, busy, setBusy, onWeatherLoaded }) {
             </div>
           </div>
 
-          {weatherHighlights?.summary ? (
-            <div className="ai-summary-section">
-              <h4>🤖 AI Weather Analysis</h4>
-              <p className="weather-summary">{weatherHighlights.summary}</p>
-            </div>
-          ) : null}
+          <div className="ai-summary-section">
+            <h4>🤖 AI Weather Analysis</h4>
+            <p className="weather-summary">
+              {weatherHighlights?.summary || 'No AI summary was returned for this forecast.'}
+            </p>
+          </div>
         </>
       ) : null}
     </section>
