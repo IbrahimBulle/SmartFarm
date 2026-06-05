@@ -25,12 +25,12 @@ Open the Vite URL shown in the terminal.
 
 Backend routes through `/api`:
 
-- `POST /api/register`
-- `POST /api/login`
-- `GET /api/farms`
-- `POST /api/farms`
-- `PUT /api/farms/:id`
-- `DELETE /api/farms/:id`
+- `POST /register`
+- `POST /login`
+- `GET /farms`
+- `POST /farms`
+- `PUT /farms/:id`
+- `DELETE /farms/:id`
 
 WeatherAI routes through `/weather-ai`:
 

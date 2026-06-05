@@ -332,7 +332,7 @@ function App() {
     setStatus('')
 
     try {
-      const data = await fetch(`${BACKEND_URL}/api/farms`, {
+      const data = await fetch(`${BACKEND_URL}/farms`, {
         headers: { Authorization: `Bearer ${activeToken}` },
       }).then(readResponse)
 
@@ -376,14 +376,14 @@ function App() {
 
     try {
       if (mode === 'register') {
-        await fetch(`${BACKEND_URL}/api/register`, {
+        await fetch(`${BACKEND_URL}/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(auth),
         }).then(readResponse)
       }
 
-      const data = await fetch(`${BACKEND_URL}/api/login`, {
+      const data = await fetch(`${BACKEND_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(auth),
@@ -407,7 +407,7 @@ function App() {
     setStatus('')
 
     try {
-      const saved = await fetch(editing ? `${BACKEND_URL}/api/farms/${editingFarmId}` : `${BACKEND_URL}/api/farms`, {
+      const saved = await fetch(editing ? `${BACKEND_URL}/farms/${editingFarmId}` : `${BACKEND_URL}/farms`, {
         method: editing ? 'PUT' : 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -464,7 +464,7 @@ function App() {
     setStatus('')
 
     try {
-      await fetch(`${BACKEND_URL}/api/farms/${farm.id}`, {
+      await fetch(`${BACKEND_URL}/farms/${farm.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       }).then(readResponse)
@@ -504,7 +504,7 @@ function App() {
     })
 
     try {
-      const data = await fetch(`${BACKEND_URL}/api/weather?${params}`).then(readResponse)
+      const data = await fetch(`${BACKEND_URL}/weather?${params}`).then(readResponse)
       setWeather(data)
       loadUsage()
     } catch (error) {
@@ -533,7 +533,7 @@ function App() {
     })
 
     try {
-      const data = await fetch(`${BACKEND_URL}/api/trees/analyze`, {
+      const data = await fetch(`${BACKEND_URL}/trees/analyze`, {
         method: 'POST',
         body: form,
       }).then(readResponse)
