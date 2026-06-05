@@ -1,84 +1,179 @@
 # SmartFarm
 
-SmartFarm is a React + Vite frontend for farm records, WeatherAI forecasts, usage quota, and image analysis.
+SmartFarm is a React + Go farm dashboard for farm records, WeatherAI forecasts, usage tracking, and farm image analysis.
 
-the frontend is in netlify https://sunny-gecko-29a6bf.netlify.app/
-and the backend is in render https://smartfarmbackend-ypqi.onrender.com
+## Live Links
 
-## Setup
+- Frontend: https://sunny-gecko-29a6bf.netlify.app/
+- Backend API: https://smartfarmbackend-ypqi.onrender.com
 
-- **Node.js** and npm
-- **SmartFarm Backend** running at `http://127.0.0.1:8080` (or remote at `https://smartfarmbackend-ypqi.onrender.com`)
-- **WeatherAI API key** saved per SmartFarm account through the backend:
-  - The browser sends the key once to `POST /weather/key`
-  - The backend stores it in SQLite and uses it for WeatherAI proxy requests
-  - Get your free key at https://dashboard.weather-ai.co
+## Features
 
-### Free Tier Limits
+- Register and log in with JWT auth.
+- Create, view, update, and delete farms.
+- Save each user's WeatherAI API key in the backend database.
+- Fetch weather forecasts through the backend.
+- Track WeatherAI usage/quota.
+- Upload farm images for tree and health analysis.
 
-- **1,000 requests/month**
-- **200 AI requests/month** (for summaries)
-- **7-day forecast** (add `?ai=false` to save AI quota)
-- **5 image analyses/month** (tree counting & health)
+## Project Structure
 
-## Run
-
-```bash
-npm install
-npm run dev
+```text
+SmartFarm/                 # React + Vite frontend
+SmartFarmBackend/          # Go + Chi + SQLite backend
 ```
 
-Open the Vite URL shown in the terminal.
+## Frontend Setup
 
-## API
+```bash
+git clone https://github.com/IbrahimBulle/SmartFarm
+cd /SmartFarm
+npm install
+```
 
-Backend routes through `/api`:
+Create `.env`:
 
-- `POST /register`
-- `POST /login`
-- `GET /farms`
-- `POST /farms`
-- `PUT /farms/:id`
-- `DELETE /farms/:id`
+```env
+VITE_BACKEND_URL=http://127.0.0.1:8080
+```
 
-WeatherAI proxy routes used by the frontend:
-
-- `GET /weather/key` - check whether the signed-in user has a stored key
-- `POST /weather/key` - save and validate the signed-in user's WeatherAI key
-- `GET /weather` - fetch current weather and multi-day forecast
-- `GET /weather/usage` - fetch usage and quota data
-- `POST /weather/trees/analyze` - submit farm image analysis
-
-## Architecture
-
-**Frontend (React + Vite)**
-- `src/components/` - Reusable UI components (AuthPage, FarmList, WeatherSection, ImageAnalysis)
-- `src/services/` - API integrations (farmApi.js, weatherApi.js)
-- `src/utils/` - Data formatters and utilities
-
-**APIs**
-- Backend (farm CRUD & auth) → `http://127.0.0.1:8080` or remote
-- WeatherAI (weather, analysis) → SmartFarm backend proxy → `https://api.weather-ai.co/v1`
-
-## Scripts
-
-- `npm run dev` - start Vite dev server (http://localhost:5173)
-- `npm run build` - build production bundle → `dist/`
-- `npm run lint` - run ESLint checks
-- `npm run preview` - serve built app locally
-
-## Environment Variables (Optional)
+For production/hosted backend:
 
 ```env
 VITE_BACKEND_URL=https://smartfarmbackend-ypqi.onrender.com
 ```
 
-Set this before building to override the default local backend.
+Build:
 
-## Notes
+```bash
+npm run build
+```
 
-- Frontend only; requires running backend for farm CRUD
-- WeatherAI API key must be saved to the signed-in SmartFarm account before using weather/image features
-- Usage meter shows free tier quota (1000 req/mo, 200 AI req/mo, 5 analyses/mo)
-- Supports responsive design for mobile and desktop
-- Progress bar fills smoothly as usage increases
+## Backend Setup
+
+```bash
+git clone https://github.com/IbrahimBulle/SmartFarmBackend
+cd SmartFarmBackend
+go mod download
+```
+
+Create `.env`:
+
+```env
+PORT=8080
+DB_PATH=./farm.db
+JWT_SECRET=replace-with-a-secure-secret
+WEATHER_AI_BASE_URL=https://api.weather-ai.co/v1
+```
+
+Run locally:
+
+```bash
+go run ./internal/api
+```
+
+Health check:
+
+```bash
+curl http://127.0.0.1:8080/health
+```
+
+## How WeatherAI Works
+
+Users enter their WeatherAI API key in the app. The frontend sends it once to the backend, and the backend stores it in SQLite. After that, the frontend only calls the SmartFarm backend.
+
+WeatherAI endpoints used by the backend:
+
+- `GET /v1/weather`
+- `GET /v1/usage`
+- `GET /v1/trees/quota`
+- `POST /v1/trees/analyze`
+
+## Main API Routes
+
+Base URL:
+
+```text
+http://127.0.0.1:8080
+```
+
+or:
+
+```text
+https://smartfarmbackend-ypqi.onrender.com
+```
+
+Auth:
+
+- `POST /register`
+- `POST /login`
+- `POST /logout`
+
+Farms:
+
+- `GET /farms`
+- `POST /farms`
+- `GET /farms/{id}`
+- `PUT /farms/{id}`
+- `DELETE /farms/{id}`
+
+WeatherAI key:
+
+- `GET /weather/key`
+- `POST /weather/key`
+- `DELETE /weather/key`
+
+Weather:
+
+- `GET /weather?lat=-0.7813&lon=35.3416&days=3&ai=true&units=metric&lang=en`
+- `GET /weather/usage`
+- `GET /weather/trees/quota`
+- `POST /weather/trees/analyze`
+
+Protected routes require:
+
+```http
+Authorization: Bearer YOUR_TOKEN
+```
+
+## Quick API Example
+
+Login:
+
+```bash
+curl -X POST https://smartfarmbackend-ypqi.onrender.com/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"farmer@example.com","password":"Password123"}'
+```
+
+Save WeatherAI key:
+
+```bash
+curl -X POST https://smartfarmbackend-ypqi.onrender.com/weather/key \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"api_key":"YOUR_WEATHERAI_API_KEY"}'
+```
+
+Fetch weather:
+
+```bash
+curl "https://smartfarmbackend-ypqi.onrender.com/weather?lat=-0.7813&lon=35.3416&days=3&ai=true&units=metric&lang=en" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+## Deployment
+
+Netlify frontend:
+
+```env
+VITE_BACKEND_URL=https://smartfarmbackend-ypqi.onrender.com
+```
+
+Render backend:
+
+```env
+JWT_SECRET=replace-with-a-secure-secret
+DB_PATH=./farm.db
+WEATHER_AI_BASE_URL=https://api.weather-ai.co/v1
+```
