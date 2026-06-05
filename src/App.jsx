@@ -23,6 +23,14 @@ const emptyImage = {
   notes: '',
 }
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8080'
+
+const weatherAiEndpoints = {
+  usage: `https://api.weather-ai.co/v1/usage`,
+}
+
+const weatherAiToken = import.meta.env.VITE_WEATHER_AI_API || ''
+
 function getFarmSize(farm) {
   if (typeof farm.size_acres === 'number') return farm.size_acres
   if (farm.size_acres?.Valid) return farm.size_acres.Float64
@@ -98,6 +106,7 @@ function getUsageRemaining(usage) {
   if (!usage || typeof usage !== 'object') return null
 
   const candidates = [
+    usage.remaining?.requests,
     usage.remaining,
     usage.requests_remaining,
     usage.request_remaining,
@@ -111,21 +120,36 @@ function getUsageRemaining(usage) {
   return candidates.find((item) => typeof item === 'number' || typeof item === 'string') ?? null
 }
 
-function summarizeUsage(usage) {
+function firstNumber(values) {
+  for (const value of values) {
+    const numeric = toNumber(value)
+    if (numeric !== null) return numeric
+  }
+
+  return null
+}
+
+function summarizeUsage(usage, issue = '') {
+  const hasUsage = Boolean(usage)
   const rawRemaining = getUsageRemaining(usage)
   const limit =
-    toNumber(
-      findValue(usage, [
-        'limit',
-        'requests_limit',
-        'request_limit',
-        'monthly_limit',
-        'quota',
-        'quota_limit',
-        'max_requests',
-      ]),
-    ) ?? 1000
-  let used = toNumber(
+    hasUsage
+      ? firstNumber([
+          usage?.limits?.requests,
+          findValue(usage, [
+            'limit',
+            'requests_limit',
+            'request_limit',
+            'monthly_limit',
+            'quota',
+            'quota_limit',
+            'max_requests',
+          ]),
+        ]) ?? 1000
+      : null
+  let used = firstNumber([
+    usage?.period?.requestCount,
+    usage?.requestCount,
     findValue(usage, [
       'used',
       'requests_used',
@@ -135,8 +159,13 @@ function summarizeUsage(usage) {
       'usage_count',
       'count',
     ]),
-  )
-  let remaining = toNumber(rawRemaining)
+  ])
+  let remaining = firstNumber([rawRemaining])
+  const aiLimit = hasUsage ? firstNumber([usage?.limits?.aiRequests, usage?.ai_request_limit]) : null
+  const aiUsed = hasUsage ? firstNumber([usage?.period?.aiRequestCount, usage?.aiRequestCount]) : null
+  const aiRemaining = hasUsage
+    ? firstNumber([usage?.remaining?.aiRequests, usage?.ai_requests_remaining])
+    : null
 
   if (used === null && limit !== null && remaining !== null) {
     used = Math.max(limit - remaining, 0)
@@ -147,12 +176,20 @@ function summarizeUsage(usage) {
   }
 
   const percent = limit && used !== null ? Math.min(Math.max((used / limit) * 100, 0), 100) : 0
-  const plan = findValue(usage, ['plan', 'tier', 'subscription_plan']) || 'Free plan'
-  const reset = findValue(usage, ['reset_at', 'resets_at', 'resetDate', 'renewal_date', 'period_end'])
+  const plan = hasUsage ? findValue(usage, ['plan', 'tier', 'subscription_plan']) || 'Free plan' : ''
+  const reset =
+    usage?.period?.end ||
+    findValue(usage, ['reset_at', 'resets_at', 'resetDate', 'renewal_date', 'period_end'])
+  const periodStart = usage?.period?.start || findValue(usage, ['period_start', 'billing_start'])
 
   return {
-    connected: Boolean(usage),
+    aiLimit,
+    aiRemaining,
+    aiUsed,
+    connected: hasUsage,
+    issue,
     limit,
+    periodStart,
     plan,
     remaining,
     reset,
@@ -162,32 +199,61 @@ function summarizeUsage(usage) {
 }
 
 function UsageMeter({ compact = false, summary }) {
+  const headingLabel = summary.connected
+    ? summary.plan
+    : summary.issue
+      ? 'Usage not working'
+      : 'Usage waiting'
+  const headingValue = summary.connected
+    ? `${summary.percent}% used`
+    : summary.issue
+      ? 'Endpoint failed'
+      : 'Connect API'
+
   return (
     <div
       className={compact ? 'usage-meter compact' : 'usage-meter'}
       style={{ '--usage-width': `${summary.percent}%` }}
     >
       <div className="usage-meter-heading">
-        <span>{summary.connected ? summary.plan : 'Usage waiting'}</span>
-        <strong>{summary.connected ? `${summary.percent}% used` : 'Connect API'}</strong>
+        <span>{headingLabel}</span>
+        <strong>{headingValue}</strong>
       </div>
       <div className="meter-track" aria-hidden="true">
         <span></span>
       </div>
+      {summary.issue ? <p className="usage-meter-message">{summary.issue}</p> : null}
       <div className="usage-meter-stats">
         <span>
           <strong>{formatNumber(summary.used, summary.connected ? '0' : '--')}</strong>
-          Used
+          Requests used
         </span>
         <span>
           <strong>{formatNumber(summary.remaining)}</strong>
-          Remaining
+          Requests left
         </span>
         <span>
           <strong>{formatNumber(summary.limit)}</strong>
-          Limit
+          Request limit
+        </span>
+        <span>
+          <strong>{formatNumber(summary.aiUsed, summary.connected ? '0' : '--')}</strong>
+          AI used
+        </span>
+        <span>
+          <strong>{formatNumber(summary.aiRemaining)}</strong>
+          AI left
+        </span>
+        <span>
+          <strong>{formatNumber(summary.aiLimit)}</strong>
+          AI limit
         </span>
       </div>
+      {summary.connected ? (
+        <p className="usage-meter-period">
+          Billing: {formatMaybeDate(summary.periodStart)} to {formatMaybeDate(summary.reset)}
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -210,9 +276,11 @@ function App() {
   const [farmForm, setFarmForm] = useState(emptyFarm)
   const [farms, setFarms] = useState([])
   const [selectedFarmId, setSelectedFarmId] = useState('')
+  const [editingFarmId, setEditingFarmId] = useState('')
   const [weatherForm, setWeatherForm] = useState(emptyWeather)
   const [weather, setWeather] = useState(null)
   const [usage, setUsage] = useState(null)
+  const [usageError, setUsageError] = useState('')
   const [imageForm, setImageForm] = useState(emptyImage)
   const [imageFile, setImageFile] = useState(null)
   const [analysis, setAnalysis] = useState(null)
@@ -256,14 +324,15 @@ function App() {
     ].slice(0, 5)
   }, [analysis])
 
-  const usageSummary = useMemo(() => summarizeUsage(usage), [usage])
+  const usageSummary = useMemo(() => summarizeUsage(usage, usageError), [usage, usageError])
+  const isEditingFarm = Boolean(editingFarmId)
 
   const loadFarms = useCallback(async (activeToken = token) => {
     setBusy('farms')
     setStatus('')
 
     try {
-      const data = await fetch('/api/farms', {
+      const data = await fetch(`${BACKEND_URL}/api/farms`, {
         headers: { Authorization: `Bearer ${activeToken}` },
       }).then(readResponse)
 
@@ -278,10 +347,17 @@ function App() {
 
   const loadUsage = useCallback(async () => {
     try {
-      const data = await fetch('/weather-ai/v1/usage').then(readResponse)
+      const data = await fetch(weatherAiEndpoints.usage, {
+        headers: weatherAiToken ? { Authorization: `Bearer ${weatherAiToken}` } : {},
+      }).then(readResponse)
+      if (!data || typeof data !== 'object' || (!data.period && !data.limits && !data.remaining)) {
+        throw new Error('WeatherAI usage endpoint returned no quota data.')
+      }
       setUsage(data)
-    } catch {
+      setUsageError('')
+    } catch (error) {
       setUsage(null)
+      setUsageError(error.message || 'WeatherAI usage endpoint is not working.')
     }
   }, [])
 
@@ -300,14 +376,14 @@ function App() {
 
     try {
       if (mode === 'register') {
-        await fetch('/api/register', {
+        await fetch(`${BACKEND_URL}/api/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(auth),
         }).then(readResponse)
       }
 
-      const data = await fetch('/api/login', {
+      const data = await fetch(`${BACKEND_URL}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(auth),
@@ -323,14 +399,16 @@ function App() {
     }
   }
 
-  async function createFarm(event) {
+  async function saveFarm(event) {
     event.preventDefault()
-    setBusy('create-farm')
+    const editing = Boolean(editingFarmId)
+
+    setBusy(editing ? 'update-farm' : 'create-farm')
     setStatus('')
 
     try {
-      const created = await fetch('/api/farms', {
-        method: 'POST',
+      const saved = await fetch(editing ? `${BACKEND_URL}/api/farms/${editingFarmId}` : `${BACKEND_URL}/api/farms`, {
+        method: editing ? 'PUT' : 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -341,12 +419,71 @@ function App() {
         }),
       }).then(readResponse)
 
-      setFarms((current) => [created, ...current])
-      setSelectedFarmId(String(created.id))
+      if (editing) {
+        setFarms((current) =>
+          current.map((farm) => (String(farm.id) === editingFarmId ? saved : farm)),
+        )
+        setEditingFarmId('')
+        setSelectedFarmId(String(saved.id))
+        setStatus('Farm updated.')
+      } else {
+        setFarms((current) => [saved, ...current])
+        setSelectedFarmId(String(saved.id))
+        setStatus('Farm created.')
+      }
+
       setFarmForm(emptyFarm)
-      setStatus('Farm created.')
     } catch (error) {
-      setStatus(`Could not create farm: ${error.message}`)
+      setStatus(`Could not ${editing ? 'update' : 'create'} farm: ${error.message}`)
+    } finally {
+      setBusy('')
+    }
+  }
+
+  function startEditFarm(farm) {
+    setEditingFarmId(String(farm.id))
+    setSelectedFarmId(String(farm.id))
+    setFarmForm({
+      name: farm.name || '',
+      location: farm.location || '',
+      crop_type: farm.crop_type || '',
+      size_acres: String(getFarmSize(farm) || ''),
+    })
+    setStatus('')
+  }
+
+  function cancelFarmEdit() {
+    setEditingFarmId('')
+    setFarmForm(emptyFarm)
+  }
+
+  async function deleteFarm(farm) {
+    if (!window.confirm(`Delete ${farm.name}? This cannot be undone.`)) return
+
+    setBusy(`delete-farm-${farm.id}`)
+    setStatus('')
+
+    try {
+      await fetch(`${BACKEND_URL}/api/farms/${farm.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      }).then(readResponse)
+
+      const nextFarms = farms.filter((item) => String(item.id) !== String(farm.id))
+      setFarms(nextFarms)
+
+      if (String(selectedFarmId) === String(farm.id)) {
+        setSelectedFarmId(nextFarms[0] ? String(nextFarms[0].id) : '')
+      }
+
+      if (String(editingFarmId) === String(farm.id)) {
+        setEditingFarmId('')
+        setFarmForm(emptyFarm)
+      }
+
+      setStatus('Farm deleted.')
+    } catch (error) {
+      setStatus(`Could not delete farm: ${error.message}`)
     } finally {
       setBusy('')
     }
@@ -367,7 +504,7 @@ function App() {
     })
 
     try {
-      const data = await fetch(`/weather-ai/v1/weather?${params}`).then(readResponse)
+      const data = await fetch(`${BACKEND_URL}/api/weather?${params}`).then(readResponse)
       setWeather(data)
       loadUsage()
     } catch (error) {
@@ -396,7 +533,7 @@ function App() {
     })
 
     try {
-      const data = await fetch('/weather-ai/v1/trees/analyze', {
+      const data = await fetch(`${BACKEND_URL}/api/trees/analyze`, {
         method: 'POST',
         body: form,
       }).then(readResponse)
@@ -435,6 +572,8 @@ function App() {
     setToken('')
     setFarms([])
     setSelectedFarmId('')
+    setUsage(null)
+    setUsageError('')
     setStatus('Signed out.')
   }
 
@@ -629,8 +768,7 @@ function App() {
                 <p className="eyebrow">WeatherAI account</p>
                 <h3>API usage and remaining quota</h3>
                 <p>
-                  Keep one simple mental model: used requests fill the bar, remaining
-                  requests are what you can still spend this month.
+                  Live WeatherAI usage for the current billing period.
                 </p>
               </div>
               <UsageMeter summary={usageSummary} />
@@ -660,18 +798,34 @@ function App() {
               </div>
               <div>
                 <span>Weather quota</span>
-                <strong>{formatNumber(usageSummary.remaining, usageSummary.connected ? '0' : 'Ready')}</strong>
-                <small>{usageSummary.connected ? 'Requests remaining' : 'Waiting for usage'}</small>
+                <strong>
+                  {formatNumber(
+                    usageSummary.remaining,
+                    usageSummary.connected ? '0' : usageSummary.issue ? 'Not working' : 'Ready',
+                  )}
+                </strong>
+                <small>
+                  {usageSummary.connected
+                    ? 'Requests remaining'
+                    : usageSummary.issue
+                      ? 'Usage endpoint failed'
+                      : 'Waiting for usage'}
+                </small>
               </div>
             </section>
 
             <section className="workspace-grid">
-              <form className="panel" id="farms" onSubmit={createFarm}>
+              <form className="panel" id="farms" onSubmit={saveFarm}>
                 <div className="panel-heading">
                   <div>
-                    <p className="eyebrow">Create farm</p>
-                    <h3>Farm profile</h3>
+                    <p className="eyebrow">{isEditingFarm ? 'Edit farm' : 'Create farm'}</p>
+                    <h3>{isEditingFarm ? 'Update profile' : 'Farm profile'}</h3>
                   </div>
+                  {isEditingFarm ? (
+                    <button className="ghost-button" type="button" onClick={cancelFarmEdit}>
+                      Cancel
+                    </button>
+                  ) : null}
                 </div>
                 <label>
                   Farm name
@@ -716,8 +870,16 @@ function App() {
                     />
                   </label>
                 </div>
-                <button className="primary-button" type="submit" disabled={busy === 'create-farm'}>
-                  {busy === 'create-farm' ? 'Saving...' : 'Create farm'}
+                <button
+                  className="primary-button"
+                  type="submit"
+                  disabled={busy === 'create-farm' || busy === 'update-farm'}
+                >
+                  {busy === 'create-farm' || busy === 'update-farm'
+                    ? 'Saving...'
+                    : isEditingFarm
+                      ? 'Save changes'
+                      : 'Create farm'}
                 </button>
               </form>
 
@@ -734,20 +896,41 @@ function App() {
                 {farms.length ? (
                   <div className="list-stack">
                     {farms.map((farm) => (
-                      <button
+                      <div
                         className={String(farm.id) === String(selectedFarm?.id) ? 'farm active' : 'farm'}
                         key={farm.id}
-                        type="button"
-                        onClick={() => setSelectedFarmId(String(farm.id))}
                       >
-                        <span>
-                          <strong>{farm.name}</strong>
-                          <small>
-                            {farm.crop_type} · {getFarmSize(farm)} acres
-                          </small>
-                        </span>
-                        <small>{friendlyDate(farm.created_at)}</small>
-                      </button>
+                        <button
+                          className="farm-select"
+                          type="button"
+                          onClick={() => setSelectedFarmId(String(farm.id))}
+                        >
+                          <span>
+                            <strong>{farm.name}</strong>
+                            <small>
+                              {farm.crop_type} · {getFarmSize(farm)} acres
+                            </small>
+                          </span>
+                          <small>{friendlyDate(farm.created_at)}</small>
+                        </button>
+                        <div className="farm-actions">
+                          <button
+                            className="ghost-button"
+                            type="button"
+                            onClick={() => startEditFarm(farm)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="danger-button"
+                            type="button"
+                            disabled={busy === `delete-farm-${farm.id}`}
+                            onClick={() => deleteFarm(farm)}
+                          >
+                            {busy === `delete-farm-${farm.id}` ? 'Deleting...' : 'Delete'}
+                          </button>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 ) : (

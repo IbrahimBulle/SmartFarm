@@ -2,13 +2,12 @@ import { defineConfig } from 'vite'
 import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import babel from '@rolldown/plugin-babel'
 import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+
+const backendEnvPath = '/home/ibra/workspace/SmartFarmBackend/.env'
 
 function readBackendEnv(name) {
-  const envPath = resolve('../SmartFarmBackend/.env')
-
   try {
-    const env = readFileSync(envPath, 'utf8')
+    const env = readFileSync(backendEnvPath, 'utf8')
     const line = env
       .split('\n')
       .find((item) => item.trim().startsWith(`${name}=`))
@@ -32,6 +31,10 @@ export default defineConfig({
     react(),
     babel({ presets: [reactCompilerPreset()] })
   ],
+  define: {
+    'import.meta.env.VITE_WEATHER_AI_API': JSON.stringify(weatherApiKey),
+    'import.meta.env.VITE_BACKEND_URL': JSON.stringify(process.env.VITE_BACKEND_URL || ''),
+  },
   server: {
     proxy: {
       '/api': {
