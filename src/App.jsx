@@ -82,7 +82,39 @@ function App() {
     })
   }, [loadFarms, loadUsage, token])
 
+  // Clear old API key when user logs in with a new account
+  useEffect(() => {
+    if (!token) return
+
+    // Check if we have an API key set for this account
+    const hasApiKey = Boolean(
+      localStorage.getItem('smartfarm_weather_ai_key') ||
+        localStorage.getItem('weatherAiToken') ||
+        localStorage.getItem('weather_ai_key') ||
+        localStorage.getItem('weather-ai-key'),
+    )
+
+    setApiKeyReady(hasApiKey)
+
+    // If no API key, show setup message
+    if (!hasApiKey) {
+      setStatus('🔑 Please set up your WeatherAI API key to continue.')
+    }
+  }, [token])
+
   function handleLogin(newToken) {
+    const previousToken = localStorage.getItem('smartfarm_token')
+    
+    // If there was a previous token and it's different, user switched accounts
+    if (previousToken && previousToken !== newToken) {
+      // Clear old API key for previous account
+      localStorage.removeItem('smartfarm_weather_ai_key')
+      localStorage.removeItem('weatherAiToken')
+      localStorage.removeItem('weather_ai_key')
+      localStorage.removeItem('weather-ai-key')
+      // Will force API key setup after token updates
+    }
+    
     setToken(newToken)
   }
 
