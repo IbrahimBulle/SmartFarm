@@ -411,6 +411,66 @@ nav {
   margin-bottom: 16px;
 }
 
+/* ===== API Key Setup ===== */
+
+.api-key-setup {
+  border: 2px solid var(--leaf);
+  background: linear-gradient(135deg, #f0f7f2, #fafbfa);
+}
+
+.api-key-setup h3 {
+  color: var(--leaf);
+}
+
+.setup-info {
+  padding: 16px;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid rgba(45, 134, 89, 0.2);
+  margin: 16px 0;
+}
+
+.setup-info strong {
+  display: block;
+  margin-bottom: 12px;
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.setup-info ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.setup-info li {
+  padding-left: 24px;
+  position: relative;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.setup-info li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: var(--leaf);
+  font-weight: 700;
+}
+
+.api-key-setup a {
+  color: var(--leaf);
+  text-decoration: underline;
+  font-weight: 700;
+}
+
+.api-key-setup a:hover {
+  color: var(--water);
+}
+
 /* ===== Forms ===== */
 
 form {

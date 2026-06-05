@@ -94,7 +94,7 @@ export async function updateFarm(token, farmId, farmData) {
  * Delete a farm
  */
 export async function deleteFarm(token, farmId) {
-  const response = await fetch(`${BACKEND_URL}/api/farms/${farmId}`, {
+  const response = await fetch(`${BACKEND_URL}/farms/${farmId}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
   })

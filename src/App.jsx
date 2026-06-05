@@ -4,6 +4,7 @@ import { fetchFarms } from './services/farmApi'
 import { fetchUsage } from './services/weatherApi'
 import { summarizeUsage } from './utils/formatters'
 import { AuthPage } from './components/AuthPage'
+import { ApiKeySetup } from './components/ApiKeySetup'
 import { FarmList } from './components/FarmList'
 import { WeatherSection } from './components/WeatherSection'
 import { ImageAnalysis } from './components/ImageAnalysis'
@@ -11,6 +12,14 @@ import { UsageMeter } from './components/UsageMeter'
 
 function App() {
   const [token, setToken] = useState(() => localStorage.getItem('smartfarm_token') || '')
+  const [apiKeyReady, setApiKeyReady] = useState(() => {
+    return Boolean(
+      localStorage.getItem('smartfarm_weather_ai_key') ||
+        localStorage.getItem('weatherAiToken') ||
+        localStorage.getItem('weather_ai_key') ||
+        localStorage.getItem('weather-ai-key'),
+    )
+  })
   const [farms, setFarms] = useState([])
   const [selectedFarmId, setSelectedFarmId] = useState('')
   const [usage, setUsage] = useState(null)
@@ -64,6 +73,11 @@ function App() {
     setToken(newToken)
   }
 
+  function handleApiKeySet() {
+    setApiKeyReady(true)
+    setStatus('API key configured successfully!')
+  }
+
   function handleSignOut() {
     localStorage.removeItem('smartfarm_token')
     setToken('')
@@ -76,6 +90,36 @@ function App() {
 
   if (!token) {
     return <AuthPage onLogin={handleLogin} status={status} setStatus={setStatus} />
+  }
+
+  if (!apiKeyReady) {
+    return (
+      <main className="app-shell">
+        <aside className="sidebar">
+          <div className="brand-lockup">
+            <div className="brand-mark">SF</div>
+            <div>
+              <p className="eyebrow">SmartFarm</p>
+              <strong>Field intelligence</strong>
+            </div>
+          </div>
+
+          <button className="ghost-button" type="button" onClick={handleSignOut}>
+            Sign out
+          </button>
+        </aside>
+
+        <section className="content">
+          <div className="topbar">
+            <h1>SmartFarm Setup</h1>
+          </div>
+
+          <ApiKeySetup onApiKeySet={handleApiKeySet} status={status} setStatus={setStatus} />
+
+          {status && <div className="status-line">{status}</div>}
+        </section>
+      </main>
+    )
   }
 
   return (
@@ -110,6 +154,21 @@ function App() {
           </button>
           <UsageMeter compact={true} summary={usageSummary} />
         </div>
+
+        <button
+          className="ghost-button"
+          type="button"
+          onClick={() => {
+            const newKey = prompt('Enter your WeatherAI API key:')
+            if (newKey?.trim()) {
+              localStorage.setItem('smartfarm_weather_ai_key', newKey.trim())
+              setStatus('✅ API key updated!')
+              loadUsage()
+            }
+          }}
+        >
+          🔑 Change API Key
+        </button>
 
         <button className="ghost-button" type="button" onClick={handleSignOut}>
           Sign out

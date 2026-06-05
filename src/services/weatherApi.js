@@ -7,7 +7,8 @@ const BASE_URL = 'https://api.weather-ai.co/v1'
 
 function getAuthHeader() {
   const key =
-    localStorage.getItem('weatherAiKey') ||
+    localStorage.getItem('smartfarm_weather_ai_key') ||
+    localStorage.getItem('smartfarm_token') ||
     localStorage.getItem('weatherAiToken') ||
     localStorage.getItem('weather_ai_key') ||
     localStorage.getItem('weather-ai-key') ||
