@@ -26,10 +26,17 @@ const emptyImage = {
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8080'
 
 const weatherAiEndpoints = {
-  usage: `https://api.weather-ai.co/v1/usage`,
+  usage: 'https://api.weather-ai.co/v1/usage',
+  weather: 'https://api.weather-ai.co/v1/weather',
+  analyze: 'https://api.weather-ai.co/v1/trees/analyze',
 }
 
-const weatherAiToken = import.meta.env.VITE_WEATHER_AI_API || ''
+function getWeatherAiHeaders() {
+  const key =
+    localStorage.getItem('smartfarm_token')
+
+  return key ? { Authorization: `Bearer ${key}` } : {}
+}
 
 function getFarmSize(farm) {
   if (typeof farm.size_acres === 'number') return farm.size_acres
@@ -347,8 +354,11 @@ function App() {
 
   const loadUsage = useCallback(async () => {
     try {
+      const usageHeaders = getWeatherAiHeaders()
+      if (!usageHeaders.Authorization) throw new Error('Missing WeatherAI API key in localStorage.')
+
       const data = await fetch(weatherAiEndpoints.usage, {
-        headers: weatherAiToken ? { Authorization: `Bearer ${weatherAiToken}` } : {},
+        headers: usageHeaders,
       }).then(readResponse)
       if (!data || typeof data !== 'object' || (!data.period && !data.limits && !data.remaining)) {
         throw new Error('WeatherAI usage endpoint returned no quota data.')
@@ -504,7 +514,12 @@ function App() {
     })
 
     try {
-      const data = await fetch(`${BACKEND_URL}/weather?${params}`).then(readResponse)
+      const weatherHeaders = getWeatherAiHeaders()
+      if (!weatherHeaders.Authorization) throw new Error('Missing WeatherAI API key in localStorage.')
+
+      const data = await fetch(`${weatherAiEndpoints.weather}?${params}`, {
+        headers: weatherHeaders,
+      }).then(readResponse)
       setWeather(data)
       loadUsage()
     } catch (error) {
@@ -533,8 +548,12 @@ function App() {
     })
 
     try {
-      const data = await fetch(`${BACKEND_URL}/trees/analyze`, {
+      const analysisHeaders = getWeatherAiHeaders()
+      if (!analysisHeaders.Authorization) throw new Error('Missing WeatherAI API key in localStorage.')
+
+      const data = await fetch(weatherAiEndpoints.analyze, {
         method: 'POST',
+        headers: analysisHeaders,
         body: form,
       }).then(readResponse)
 

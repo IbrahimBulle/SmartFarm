@@ -2,6 +2,9 @@
 
 SmartFarm is a React + Vite frontend for farm records, WeatherAI forecasts, usage quota, and image analysis.
 
+the frontend is in netlify https://sunny-gecko-29a6bf.netlify.app/
+and the backend is in render https://smartfarmbackend-ypqi.onrender.com
+
 ## Needed
 
 - Node.js and npm
@@ -32,16 +35,17 @@ Backend routes through `/api`:
 - `PUT /farms/:id`
 - `DELETE /farms/:id`
 
-WeatherAI routes through `/weather-ai`:
+WeatherAI routes used by the frontend:
 
-- `GET /weather-ai/v1/weather`
-- `POST /weather-ai/v1/trees/analyze`
+- `GET https://api.weather-ai.co/v1/weather` - fetch current weather and multi-day forecast
+- `GET https://api.weather-ai.co/v1/usage` - fetch usage and quota data
+- `POST https://api.weather-ai.co/v1/trees/analyze` - submit farm image analysis
 
-Usage calls the real WeatherAI API directly:
+The app reads the WeatherAI bearer token from `localStorage` using one of these keys:
 
-- `GET https://api.weather-ai.co/v1/usage`
+- `smartfarm_token`
 
-The app adds the WeatherAI bearer token from `WEATHER_AI_API`. It also adds the login JWT to protected backend farm routes.
+The backend is still used for farm CRUD and auth. The login JWT is sent to protected backend routes under `https://smartfarmbackend-ypqi.onrender.com`.
 
 ## Scripts
 
